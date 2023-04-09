@@ -59,6 +59,16 @@ typedef enum dt_iop_colorbalancrgb_saturation_t
   DT_COLORBALANCE_SATURATION_DTUCS = 1   // $DESCRIPTION: "darktable UCS (2022)"
 } dt_iop_colorbalancrgb_saturation_t;
 
+typedef enum dt_iop_colorbalancergb_color_angle_split
+{
+  COLOR_ANGLE_SPLIT_10 = 10, // $DESCRIPTION: "10 degrees"
+  COLOR_ANGLE_SPLIT_20 = 20, // $DESCRIPTION: "20 degrees"
+  COLOR_ANGLE_SPLIT_30 = 30, // $DESCRIPTION: "30 degrees"
+  COLOR_ANGLE_SPLIT_40 = 40, // $DESCRIPTION: "40 degrees"
+  COLOR_ANGLE_SPLIT_45 = 45, // $DESCRIPTION: "45 degrees"
+  COLOR_ANGLE_SPLIT_60 = 60, // $DESCRIPTION: "60 degrees"
+} dt_iop_colorbalancergb_color_angle_split_t;
+
 typedef struct dt_iop_colorbalancergb_params_t
 {
   /* params of v1 */
@@ -143,6 +153,7 @@ typedef struct dt_iop_colorbalancergb_color_wheel_data_t
   int chromaSteps, hueSteps;
   dt_iop_colorbalancergb_non_linear_scaling_t chromaScaling;
   uint32_t modifiers_state;
+  dt_iop_colorbalancergb_color_angle_split_t color_split_angle; // $DEFAULT: 30 $DESCRIPTION: "color split angle
 } dt_iop_colorbalancergb_color_wheel_data_t;
 
 typedef struct dt_iop_colorbalancergb_gui_data_t
@@ -159,6 +170,9 @@ typedef struct dt_iop_colorbalancergb_gui_data_t
   GtkWidget *hue_angle;
   GtkDrawingArea *area;
   GtkDrawingArea *color_wheel_area;
+  GtkWidget *color_wheel_layout_toolbar;
+  GtkMenu *color_swap_menu;
+  GtkWidget *color_split_angle;
   GtkNotebook *notebook;
   GtkWidget *checker_color_1_picker, *checker_color_2_picker, *checker_size;
   gboolean mask_display;
@@ -1575,6 +1589,103 @@ static void paint_color_wheel_cursor(cairo_t *cr, float greyLevel, float cursorR
   cairo_restore(cr);
 }
 
+static void paint_color_split_complimentary_button(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags,
+                                                   void *data)
+{
+  cairo_set_line_width(cr, 1.0);
+
+  const double centerX = x + w / 2;
+  const double centerY = y + h / 2;
+  const float rad = fmin(w, h);
+  const double startAngle = -M_PI;
+  const double angleInc = M_PI / 6.0;
+
+  cairo_move_to(cr, centerX, centerY);
+  cairo_line_to(cr, centerX + rad * cos(startAngle), centerY + rad * sin(startAngle));
+  cairo_stroke(cr);
+
+  cairo_move_to(cr, centerX, centerY);
+  cairo_line_to(cr, centerX + rad * cos(angleInc), centerY + rad * sin(angleInc));
+  cairo_stroke(cr);
+
+  cairo_move_to(cr, centerX, centerY);
+  cairo_line_to(cr, centerX + rad * cos(-angleInc), centerY + rad * sin(-angleInc));
+  cairo_stroke(cr);
+}
+
+static void paint_color_triad_button(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags, void *data)
+{
+  cairo_set_line_width(cr, 1.);
+
+  const double centerX = x + w / 2;
+  const double centerY = y + h / 2;
+
+  const float rad = fmin(w, h);
+  const double _2pi3rd = 2.0 * M_PI / 3.0;
+  const double startAngle = -M_PI / 2.0;
+
+  cairo_move_to(cr, centerX, centerY);
+  cairo_line_to(cr, centerX + rad * cos(startAngle), centerY + rad * sin(startAngle));
+  cairo_stroke(cr);
+
+  cairo_move_to(cr, centerX, centerY);
+  cairo_line_to(cr, centerX + rad * cos(startAngle + _2pi3rd), centerY + rad * sin(startAngle + _2pi3rd));
+  cairo_stroke(cr);
+
+  cairo_move_to(cr, centerX, centerY);
+  cairo_line_to(cr, centerX + rad * cos(startAngle + 2.0 * _2pi3rd),
+                centerY + rad * sin(startAngle + 2.0 * _2pi3rd));
+  cairo_stroke(cr);
+}
+
+static void paint_color_adjacent_button(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags, void *data)
+{
+  cairo_set_line_width(cr, 1.0);
+
+  const double centerX = x + w / 2;
+  const double centerY = y + h / 2;
+
+  const float rad = fmin(w, h);
+  const double angleInc = M_PI / 4.0;
+  const double startAngle = 0.0;
+
+  cairo_move_to(cr, 0, centerY);
+  cairo_line_to(cr, centerX + rad * cos(startAngle), centerY + rad * sin(startAngle));
+  cairo_stroke(cr);
+
+  cairo_move_to(cr, 0, centerY);
+  cairo_line_to(cr, centerX + rad * cos(startAngle + angleInc), centerY + rad * sin(startAngle + angleInc));
+  cairo_stroke(cr);
+
+  cairo_move_to(cr, 0, centerY);
+  cairo_line_to(cr, centerX + rad * cos(startAngle - angleInc), centerY + rad * sin(startAngle - angleInc));
+  cairo_stroke(cr);
+}
+
+static void paint_color_square_button(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags, void *data)
+{
+  cairo_set_line_width(cr, 1.0);
+
+  const double centerX = x + w / 2;
+  const double centerY = y + h / 2;
+
+  const float rad = fmin(w, h);
+  const double angleInc = M_PI / 2.0;
+  const double startAngle = -M_PI / 2.0;
+
+  cairo_move_to(cr, centerX, centerY);
+  cairo_line_to(cr, centerX + rad * cos(startAngle), centerY + rad * sin(startAngle));
+  cairo_stroke(cr);
+
+  cairo_move_to(cr, centerX, centerY);
+  cairo_line_to(cr, centerX + rad * cos(startAngle + angleInc), centerY + rad * sin(startAngle + angleInc));
+  cairo_stroke(cr);
+
+  cairo_move_to(cr, centerX, centerY);
+  cairo_line_to(cr, centerX + rad * cos(startAngle - angleInc), centerY + rad * sin(startAngle - angleInc));
+  cairo_stroke(cr);
+}
+
 static void init_color_wheel(GtkWidget *widget, gpointer user_data)
 {
   GtkAllocation allocation;
@@ -1583,16 +1694,18 @@ static void init_color_wheel(GtkWidget *widget, gpointer user_data)
 
   dt_iop_module_t *self = (dt_iop_module_t *)user_data;
   dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)self->gui_data;
-  g->color_wheel_data
-      = (dt_iop_colorbalancergb_color_wheel_data_t){ .selected_cursor = CURSOR_NONE,
-                                                     .hovered_cursor = CURSOR_NONE,
-                                                     .centerX = width * 0.5f,
-                                                     .centerY = height * 0.5f,
-                                                     .radius = fminf(width, height) * 0.5f,
-                                                     .chromaSteps = 8,
-                                                     .hueSteps = 360.0f / 10.0f,
-                                                     .chromaScaling = non_linear_scaling_init(0.005, 0.05, 0.3),
-                                                     .modifiers_state = 0 };
+  g->color_wheel_data = (dt_iop_colorbalancergb_color_wheel_data_t){
+    .selected_cursor = CURSOR_NONE,
+    .hovered_cursor = CURSOR_NONE,
+    .centerX = width * 0.5f,
+    .centerY = height * 0.5f,
+    .radius = fminf(width, height) * 0.5f,
+    .chromaSteps = 8,
+    .hueSteps = 360.0f / 10.0f,
+    .chromaScaling = non_linear_scaling_init(0.005, 0.05, 0.3),
+    .modifiers_state = 0,
+    .color_split_angle = COLOR_ANGLE_SPLIT_30,
+  };
 }
 
 static void paint_color_wheel(GtkWidget *widget, cairo_t *crf, gpointer user_data)
@@ -1661,17 +1774,192 @@ static dt_iop_colorbalancergb_color_wheel_cursor_t color_wheel_hovered_cursor(fl
   return CURSOR_NONE;
 }
 
+static gboolean cursor_menuitem_swap(GtkMenuItem *menuitem, GdkEventButton *event, dt_iop_module_t *iop)
+{
+  if(event->type == GDK_BUTTON_PRESS)
+  {
+    int *swapIndices = g_object_get_data(G_OBJECT(menuitem), "swap-indices");
+    dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)iop->gui_data;
+    dt_iop_colorbalancergb_params_t *p = (dt_iop_colorbalancergb_params_t *)iop->params;
+
+    GtkWidget *hueSliders[3] = { g->shadows_H, g->midtones_H, g->highlights_H };
+    const float hues[3] = { p->shadows_H, p->midtones_H, p->highlights_H };
+
+    const int srcCursorIdx = swapIndices[0];
+    const int dstCursorIdx = swapIndices[1];
+
+    dt_bauhaus_slider_set(hueSliders[dstCursorIdx], hues[srcCursorIdx]);
+    dt_bauhaus_slider_set(hueSliders[srcCursorIdx], hues[dstCursorIdx]);
+
+    g->color_wheel_data.selected_cursor = CURSOR_NONE;
+    return TRUE;
+  }
+  return FALSE;
+}
+
+static gboolean cursor_menuitem_place_opposed(GtkMenuItem *menuitem, GdkEventButton *event, dt_iop_module_t *iop)
+{
+  if(event->type == GDK_BUTTON_PRESS)
+  {
+    int *swapIndices = g_object_get_data(G_OBJECT(menuitem), "swap-indices");
+    dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)iop->gui_data;
+    dt_iop_colorbalancergb_params_t *p = (dt_iop_colorbalancergb_params_t *)iop->params;
+    g->color_wheel_data.selected_cursor = CURSOR_NONE;
+
+    GtkWidget *hueSliders[3] = { g->shadows_H, g->midtones_H, g->highlights_H };
+    const float hues[3] = { p->shadows_H, p->midtones_H, p->highlights_H };
+
+    dt_bauhaus_slider_set(hueSliders[swapIndices[0]], hues[swapIndices[1]] + 180.0f);
+
+    return TRUE;
+  }
+  return FALSE;
+}
+
+static gboolean cursor_menuitem_place_adjacent(GtkMenuItem *menuitem, GdkEventButton *event, dt_iop_module_t *iop)
+{
+  if(event->type == GDK_BUTTON_PRESS)
+  {
+    int *swapIndices = g_object_get_data(G_OBJECT(menuitem), "swap-indices");
+    dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)iop->gui_data;
+    dt_iop_colorbalancergb_params_t *p = (dt_iop_colorbalancergb_params_t *)iop->params;
+    g->color_wheel_data.selected_cursor = CURSOR_NONE;
+
+    GtkWidget *hueSliders[3] = { g->shadows_H, g->midtones_H, g->highlights_H };
+    const float hues[3] = { p->shadows_H, p->midtones_H, p->highlights_H };
+
+    dt_bauhaus_slider_set(hueSliders[swapIndices[0]], hues[swapIndices[1]] + g->color_wheel_data.color_split_angle);
+
+    return TRUE;
+  }
+  return FALSE;
+}
+
+static void cursor_menu_cancel(GtkMenuShell *menu, dt_iop_module_t *iop)
+{
+  dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)iop->gui_data;
+  g->color_wheel_data.selected_cursor = CURSOR_NONE;
+}
+
+static void color_wheel_cursor_swap_popup(dt_iop_module_t *iop)
+{
+  dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)iop->gui_data;
+
+  int currentCursorIdx = 0;
+  switch(g->color_wheel_data.selected_cursor)
+  {
+    case CURSOR_HIGHLIGHTS:
+      currentCursorIdx = 2;
+      break;
+    case CURSOR_MIDTONES:
+      currentCursorIdx = 1;
+      break;
+    case CURSOR_SHADOWS:
+    default:
+      break;
+  }
+
+  const int nextCursorIdx = (currentCursorIdx + 1) % 3;
+  const int nextCursorIdx2 = (currentCursorIdx + 2) % 3;
+
+  if(g->color_swap_menu) gtk_widget_destroy(GTK_WIDGET(g->color_swap_menu));
+  g->color_swap_menu = GTK_MENU(gtk_menu_new());
+
+  const char *names[3] = { "shadows", "midtones", "highlights" };
+
+  {
+    gchar *txt = g_strdup_printf("swap with %s", names[nextCursorIdx]);
+    GtkWidget *mi = gtk_menu_item_new_with_label(txt);
+    int *entry = (int *)g_malloc(2 * sizeof(int));
+    entry[0] = currentCursorIdx;
+    entry[1] = nextCursorIdx;
+
+    g_object_set_data_full(G_OBJECT(mi), "swap-indices", entry, g_free);
+    g_signal_connect(G_OBJECT(mi), "button-press-event", G_CALLBACK(cursor_menuitem_swap), iop);
+    gtk_menu_shell_append(GTK_MENU_SHELL(g->color_swap_menu), GTK_WIDGET(mi));
+    g_free(txt);
+  }
+  {
+    gchar *txt = g_strdup_printf("swap with %s", names[nextCursorIdx2]);
+    GtkWidget *mi = gtk_menu_item_new_with_label(txt);
+    int *entry = (int *)g_malloc(2 * sizeof(int));
+    entry[0] = currentCursorIdx;
+    entry[1] = nextCursorIdx2;
+
+    g_object_set_data_full(G_OBJECT(mi), "swap-indices", entry, g_free);
+    g_signal_connect(G_OBJECT(mi), "button-press-event", G_CALLBACK(cursor_menuitem_swap), iop);
+    gtk_menu_shell_append(GTK_MENU_SHELL(g->color_swap_menu), GTK_WIDGET(mi));
+    g_free(txt);
+  }
+  {
+    gchar *txt = g_strdup_printf("opposed to %s", names[nextCursorIdx]);
+    GtkWidget *mi = gtk_menu_item_new_with_label(txt);
+    int *entry = (int *)g_malloc(2 * sizeof(int));
+    entry[0] = currentCursorIdx;
+    entry[1] = nextCursorIdx;
+
+    g_object_set_data_full(G_OBJECT(mi), "swap-indices", entry, g_free);
+    g_signal_connect(G_OBJECT(mi), "button-press-event", G_CALLBACK(cursor_menuitem_place_opposed), iop);
+    gtk_menu_shell_append(GTK_MENU_SHELL(g->color_swap_menu), GTK_WIDGET(mi));
+    g_free(txt);
+  }
+  {
+    gchar *txt = g_strdup_printf("opposed to %s", names[nextCursorIdx2]);
+    GtkWidget *mi = gtk_menu_item_new_with_label(txt);
+    int *entry = (int *)g_malloc(2 * sizeof(int));
+    entry[0] = currentCursorIdx;
+    entry[1] = nextCursorIdx2;
+
+    g_object_set_data_full(G_OBJECT(mi), "swap-indices", entry, g_free);
+    g_signal_connect(G_OBJECT(mi), "button-press-event", G_CALLBACK(cursor_menuitem_place_opposed), iop);
+    gtk_menu_shell_append(GTK_MENU_SHELL(g->color_swap_menu), GTK_WIDGET(mi));
+    g_free(txt);
+  }
+  {
+    gchar *txt = g_strdup_printf("adjacent to %s", names[nextCursorIdx]);
+    GtkWidget *mi = gtk_menu_item_new_with_label(txt);
+    int *entry = (int *)g_malloc(2 * sizeof(int));
+    entry[0] = currentCursorIdx;
+    entry[1] = nextCursorIdx;
+
+    g_object_set_data_full(G_OBJECT(mi), "swap-indices", entry, g_free);
+    g_signal_connect(G_OBJECT(mi), "button-press-event", G_CALLBACK(cursor_menuitem_place_adjacent), iop);
+    gtk_menu_shell_append(GTK_MENU_SHELL(g->color_swap_menu), GTK_WIDGET(mi));
+    g_free(txt);
+  }
+  {
+    gchar *txt = g_strdup_printf("adjacent to %s", names[nextCursorIdx2]);
+    GtkWidget *mi = gtk_menu_item_new_with_label(txt);
+    int *entry = (int *)g_malloc(2 * sizeof(int));
+    entry[0] = currentCursorIdx;
+    entry[1] = nextCursorIdx2;
+
+    g_object_set_data_full(G_OBJECT(mi), "swap-indices", entry, g_free);
+    g_signal_connect(G_OBJECT(mi), "button-press-event", G_CALLBACK(cursor_menuitem_place_adjacent), iop);
+    gtk_menu_shell_append(GTK_MENU_SHELL(g->color_swap_menu), GTK_WIDGET(mi));
+    g_free(txt);
+  }
+
+  dt_gui_menu_popup(g->color_swap_menu, NULL, GDK_GRAVITY_SOUTH_WEST, GDK_GRAVITY_NORTH_WEST);
+  g_signal_connect(G_OBJECT(g->color_swap_menu), "selection-done", G_CALLBACK(cursor_menu_cancel), iop);
+}
+
+
 static gboolean color_wheel_mouse_button_press_release(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 {
   dt_iop_module_t *self = (dt_iop_module_t *)user_data;
   dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)self->gui_data;
 
-  if(event->button == 1 && event->type == GDK_BUTTON_PRESS)
+  if((event->button == 1 || event->button == 3) && event->type == GDK_BUTTON_PRESS)
   {
     g->color_wheel_data.selected_cursor = color_wheel_hovered_cursor(event->x, event->y, self);
-    if(g->color_wheel_data.selected_cursor != CURSOR_NONE) return TRUE;
+    if(g->color_wheel_data.selected_cursor != CURSOR_NONE)
+    {
+      if(event->button == 3) color_wheel_cursor_swap_popup(self);
+      return TRUE;
+    }
   }
-  else if(event->button == 1 && event->type == GDK_BUTTON_RELEASE)
+  else if(event->type == GDK_BUTTON_RELEASE)
   {
     g->color_wheel_data.selected_cursor = CURSOR_NONE;
     return TRUE;
@@ -1771,20 +2059,17 @@ static gboolean color_wheel_mouse_move(GtkWidget *widget, GdkEventMotion *event,
   return FALSE;
 }
 
-static gboolean color_wheel_mouse_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data)
+static int findClosestChromaCursor(const dt_iop_colorbalancergb_params_t *p,
+                                   const dt_iop_colorbalancergb_color_wheel_data_t *cw, float x, float y)
 {
-  dt_iop_module_t *self = (dt_iop_module_t *)user_data;
-  dt_iop_colorbalancergb_params_t *p = (dt_iop_colorbalancergb_params_t *)self->params;
-  dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)self->gui_data;
-  g->color_wheel_data.modifiers_state = event->state;
-
-  const dt_iop_colorbalancergb_color_wheel_data_t *cw = &g->color_wheel_data;
+  int closestIdx = -1;
+  float minDist = 999.0f;
   // Find cursor whose radius is closest to the distance radius of
   // our mouse when we scrolled
-  const float xC = event->x - cw->centerX;
-  const float yC = event->y - cw->centerY;
-
+  const float xC = x - cw->centerX;
+  const float yC = y - cw->centerY;
   const float distanceToWheelCenter = sqrt(xC * xC + yC * yC);
+
   const float radiuses[3] = {
     non_linear_scaling_slider_value(&cw->chromaScaling,
                                     fmaxf(fminf(p->shadows_C, cw->chromaScaling.z), cw->chromaScaling.x))
@@ -1797,8 +2082,6 @@ static gboolean color_wheel_mouse_scroll(GtkWidget *widget, GdkEventScroll *even
         * cw->radius,
   };
 
-  int closestIdx = -1;
-  float minDist = 999.0f;
   for(int i = 0; i < 3; ++i)
   {
     const float d = fabs(distanceToWheelCenter - radiuses[i]);
@@ -1808,16 +2091,131 @@ static gboolean color_wheel_mouse_scroll(GtkWidget *widget, GdkEventScroll *even
       minDist = d;
     }
   }
-  if(closestIdx >= 0)
+
+  return closestIdx;
+}
+
+static gboolean color_wheel_mouse_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data)
+{
+  dt_iop_module_t *self = (dt_iop_module_t *)user_data;
+  dt_iop_colorbalancergb_params_t *p = (dt_iop_colorbalancergb_params_t *)self->params;
+  dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)self->gui_data;
+  g->color_wheel_data.modifiers_state = event->state;
+
+  const dt_iop_colorbalancergb_color_wheel_data_t *cw = &g->color_wheel_data;
+  GtkWidget *hueSliders[3] = { g->shadows_H, g->midtones_H, g->highlights_H };
+  const float hues[3] = { p->shadows_H, p->midtones_H, p->highlights_H };
+  const float dirScale = (event->delta_y < 0.0f) ? -1.0f : 1.0f;
+
+  if(event->state & GDK_SHIFT_MASK)
   {
-    GtkWidget *hueSliders[3] = { g->shadows_H, g->midtones_H, g->highlights_H };
-    const float hues[3] = { p->shadows_H, p->midtones_H, p->highlights_H };
-    const float dirScale = (event->delta_y < 0.0f) ? -1.0f : 1.0f;
-    const float newHue = fmod(hues[closestIdx] + 10.0f * dirScale + 360.0f, 360.0f);
-    dt_bauhaus_slider_set(hueSliders[closestIdx], newHue);
+    // Move all cursors
+    for(int i = 0; i < 3; ++i)
+    {
+      const float newHue = fmod(hues[i] + 10.0f * dirScale + 360.0f, 360.0f);
+      dt_bauhaus_slider_set(hueSliders[i], newHue);
+    }
     return TRUE;
   }
+  else
+  {
+    // Only move closest cursor
+    const int closestIdx = findClosestChromaCursor(p, cw, event->x, event->y);
+    if(closestIdx >= 0)
+    {
+      const float newHue = fmod(hues[closestIdx] + 10.0f * dirScale + 360.0f, 360.0f);
+      dt_bauhaus_slider_set(hueSliders[closestIdx], newHue);
+      return TRUE;
+    }
+  }
   return FALSE;
+}
+
+static gboolean color_wheel_split_complimentary(GtkToggleButton *togglebutton, GdkEventButton *event,
+                                                dt_iop_module_t *self)
+{
+  dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)self->gui_data;
+
+  GtkWidget *hueSliders[3] = { g->shadows_H, g->midtones_H, g->highlights_H };
+  GtkWidget *chromaSliders[3] = { g->shadows_C, g->midtones_C, g->highlights_C };
+  const dt_iop_colorbalancergb_color_angle_split_t angle = g->color_wheel_data.color_split_angle;
+  const float hues[3] = { 270.0f, 90.0f + angle, 90.0f - angle };
+  const float chroma[3] = { 0.1f, 0.02f, 0.06f };
+
+  for(int i = 0; i < 3; ++i)
+  {
+    dt_bauhaus_slider_set(hueSliders[i], hues[i]);
+    dt_bauhaus_slider_set(chromaSliders[i], chroma[i]);
+  }
+
+  return TRUE;
+}
+
+static gboolean color_wheel_triad(GtkToggleButton *togglebutton, GdkEventButton *event, dt_iop_module_t *self)
+{
+  dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)self->gui_data;
+
+  GtkWidget *hueSliders[3] = { g->shadows_H, g->midtones_H, g->highlights_H };
+  GtkWidget *chromaSliders[3] = { g->shadows_C, g->midtones_C, g->highlights_C };
+  const float hues[3] = { 0.0f, 120.0f, 240.0f };
+  const float chroma[3] = { 0.1f, 0.02f, 0.06f };
+
+  for(int i = 0; i < 3; ++i)
+  {
+    dt_bauhaus_slider_set(hueSliders[i], hues[i]);
+    dt_bauhaus_slider_set(chromaSliders[i], chroma[i]);
+  }
+
+  return TRUE;
+}
+
+static gboolean color_wheel_adjacent(GtkToggleButton *togglebutton, GdkEventButton *event, dt_iop_module_t *self)
+{
+  dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)self->gui_data;
+
+  GtkWidget *hueSliders[3] = { g->shadows_H, g->midtones_H, g->highlights_H };
+  GtkWidget *chromaSliders[3] = { g->shadows_C, g->midtones_C, g->highlights_C };
+  const dt_iop_colorbalancergb_color_angle_split_t angle = g->color_wheel_data.color_split_angle;
+  const float hues[3] = { 90.0f - angle, 90.0f, 90.0f + angle };
+  const float chroma[3] = { 0.1f, 0.02f, 0.06f };
+
+  for(int i = 0; i < 3; ++i)
+  {
+    dt_bauhaus_slider_set(hueSliders[i], hues[i]);
+    dt_bauhaus_slider_set(chromaSliders[i], chroma[i]);
+  }
+
+  return TRUE;
+}
+
+static gboolean color_wheel_square(GtkToggleButton *togglebutton, GdkEventButton *event, dt_iop_module_t *self)
+{
+  dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)self->gui_data;
+
+  GtkWidget *hueSliders[3] = { g->shadows_H, g->midtones_H, g->highlights_H };
+  GtkWidget *chromaSliders[3] = { g->shadows_C, g->midtones_C, g->highlights_C };
+  const float hues[3] = { 0.0f, 90.0f, 180.0f };
+  const float chroma[3] = { 0.1f, 0.02f, 0.06f };
+
+  for(int i = 0; i < 3; ++i)
+  {
+    dt_bauhaus_slider_set(hueSliders[i], hues[i]);
+    dt_bauhaus_slider_set(chromaSliders[i], chroma[i]);
+  }
+
+  return TRUE;
+}
+
+static void color_split_angle_callback(GtkWidget *combo, dt_iop_module_t *self)
+{
+  dt_iop_colorbalancergb_gui_data_t *g = (dt_iop_colorbalancergb_gui_data_t *)self->gui_data;
+
+  const int idx = dt_bauhaus_combobox_get(combo);
+  const dt_iop_colorbalancergb_color_angle_split_t entries[] = {
+    COLOR_ANGLE_SPLIT_10, COLOR_ANGLE_SPLIT_20, COLOR_ANGLE_SPLIT_30,
+    COLOR_ANGLE_SPLIT_40, COLOR_ANGLE_SPLIT_45, COLOR_ANGLE_SPLIT_60,
+  };
+  if(idx >= 0) g->color_wheel_data.color_split_angle = entries[idx];
 }
 
 static void paint_hue_sliders(const dt_iop_order_iccprofile_info_t *output_profile,
@@ -2325,6 +2723,29 @@ void gui_init(dt_iop_module_t *self)
   gtk_widget_add_events(GTK_WIDGET(g->color_wheel_area), GDK_POINTER_MOTION_MASK | darktable.gui->scroll_mask
                                                              | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK
                                                              | GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
+
+  // Color Wheel Layout Toolbar
+  g->color_wheel_layout_toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+  gtk_box_pack_start(GTK_BOX(g->color_wheel_layout_toolbar), dt_ui_section_label_new(C_("section", "Layout")),
+                     FALSE, TRUE, 0);
+  gtk_widget_set_tooltip_text(g->color_wheel_layout_toolbar, _("Select Common Color Layout"));
+  dt_iop_togglebutton_new(self, N_("Layout"), N_("Split Complimentary"), NULL,
+                          G_CALLBACK(color_wheel_split_complimentary), TRUE, 0, 0,
+                          paint_color_split_complimentary_button, g->color_wheel_layout_toolbar);
+  dt_iop_togglebutton_new(self, N_("Layout"), N_("Triad"), NULL, G_CALLBACK(color_wheel_triad), TRUE, 0, 0,
+                          paint_color_triad_button, g->color_wheel_layout_toolbar);
+  dt_iop_togglebutton_new(self, N_("Layout"), N_("Adjacent"), NULL, G_CALLBACK(color_wheel_adjacent), TRUE, 0, 0,
+                          paint_color_adjacent_button, g->color_wheel_layout_toolbar);
+  dt_iop_togglebutton_new(self, N_("Layout"), N_("Square"), NULL, G_CALLBACK(color_wheel_square), TRUE, 0, 0,
+                          paint_color_square_button, g->color_wheel_layout_toolbar);
+  gtk_box_pack_start(GTK_BOX(self->widget), g->color_wheel_layout_toolbar, TRUE, TRUE, 0);
+
+  // Color  Split Angle
+  DT_BAUHAUS_COMBOBOX_NEW_FULL(g->color_split_angle, self, N_("Color Split Angle"), "", "",
+                               g->color_wheel_data.color_split_angle, color_split_angle_callback, self, N_("10"),
+                               N_("20"), N_("30"), N_("40"), N_("45"), N_("60"));
+  dt_bauhaus_combobox_set(g->color_split_angle, 2);
+  gtk_box_pack_start(GTK_BOX(self->widget), g->color_split_angle, FALSE, FALSE, 0);
 
   gtk_box_pack_start(GTK_BOX(self->widget), dt_ui_section_label_new(C_("section", "global offset")), FALSE, FALSE, 0);
   sect = DT_IOP_SECTION_FOR_PARAMS(self, N_("offset"));
