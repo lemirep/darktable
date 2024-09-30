@@ -2105,7 +2105,12 @@ static gboolean color_wheel_mouse_scroll(GtkWidget *widget, GdkEventScroll *even
   const dt_iop_colorbalancergb_color_wheel_data_t *cw = &g->color_wheel_data;
   GtkWidget *hueSliders[3] = { g->shadows_H, g->midtones_H, g->highlights_H };
   const float hues[3] = { p->shadows_H, p->midtones_H, p->highlights_H };
-  const float dirScale = (event->delta_y < 0.0f) ? -1.0f : 1.0f;
+
+  int delta_y = 0;
+  if(!dt_gui_get_scroll_unit_delta(event, &delta_y))
+    return TRUE;
+
+  const float dirScale = (delta_y < 0) ? -1.0f : 1.0f;
 
   if(event->state & GDK_SHIFT_MASK)
   {
