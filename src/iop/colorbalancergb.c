@@ -1486,7 +1486,7 @@ static void paint_color_wheel_hues(cairo_t *cr, const dt_iop_colorbalancergb_gui
     for(int i = 0, m = (int)360.0 / degreesInc; i < m; ++i)
     {
       // Color from Ych to RGB
-      const float hue = DEG_TO_RAD(i * degreesInc);
+      const float hue = deg2radf(i * degreesInc);
       dt_aligned_pixel_t RGB;
       _YchToRGB(&RGB, chroma, hue, gui_data->sliders_output_profile, output_matrix);
       cairo_set_source_rgb(cr, RGB[0], RGB[1], RGB[2]);
