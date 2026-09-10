@@ -2099,7 +2099,7 @@ static gboolean color_wheel_mouse_scroll(GtkWidget *widget, GdkEventScroll *even
   const float hues[3] = { p->shadows_H, p->midtones_H, p->highlights_H };
 
   int delta_y = 0;
-  if(!dt_gui_get_scroll_unit_delta(event, &delta_y))
+  if(!dt_gui_get_scroll_unit_delta((GdkEvent *)event, &delta_y))
     return TRUE;
 
   const float dirScale = (delta_y < 0) ? -1.0f : 1.0f;
